@@ -22,7 +22,7 @@ Must enable motors before movement, for demo reasons robot will only drive 3 sec
 - p to re-enable power to the motors.
 
 
-## TODO
+## TODO In the future
 
 Swap the polarity of all of the wires on either the left or the right such that the same signals to any driver result in the same direction of motion. This will reduce the chance of incorrect wiring.
 
