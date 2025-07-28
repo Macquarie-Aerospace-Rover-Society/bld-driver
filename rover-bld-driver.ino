@@ -100,7 +100,7 @@ void beginMovement(bool forward) {
 
 /// Enable a given motor (0–3) by driving EN pin HIGH
 void enableMotors() {
-  for(int i = 4; i< 4; i++){
+  for(int i = 0; i< 4; i++){
     pinMode(EN_PINS[i], OUTPUT);
     digitalWrite(EN_PINS[i], LOW);
   }
@@ -108,7 +108,7 @@ void enableMotors() {
 
 /// Disable a given motor by returning EN pin to high-impedance
 void disableMotors() {
-  for(int i = 4; i< 4; i++){
+  for(int i = 0; i< 4; i++){
     pinMode(EN_PINS[i], INPUT);
   }
 }
@@ -118,13 +118,13 @@ void setRobotDirection(bool dir) {
   int i = 0;
   digitalWrite(FR_PINS[i++], dir ? HIGH : LOW);
   digitalWrite(FR_PINS[i++], dir ? LOW : HIGH);
-  digitalWrite(FR_PINS[i++], dir ? LOW : HIGH);
   digitalWrite(FR_PINS[i++], dir ? HIGH : LOW);
+  digitalWrite(FR_PINS[i++], dir ? LOW : HIGH);
 }
 
 /// speed: 0 … PWM_RESOLUTION
 void setRobotSpeed(uint32_t speed) {
-  for(int i = 4; i< 4; i++){
+  for(int i = 0; i< 4; i++){
     speed = constrain(speed, 0, PWM_RESOLUTION);
     analogWrite(SV_PINS[i], speed);
   }
