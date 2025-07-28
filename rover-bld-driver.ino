@@ -1,3 +1,6 @@
+#include "bldrouter.h"
+
+
 // —— Pin assignments ——
 const uint8_t EN_PINS[4]  = { 15, 16, 17, 18 };  // change to your wiring
 const uint8_t FR_PINS[4]  = { 11, 12, 13, 14 };  // F/R = HIGH: forward, LOW: reverse
@@ -40,6 +43,8 @@ void setup() {
   setRobotDirection(true);               // Forward??
   Serial.begin(115200);
   Serial.println(F("Commands: w=forward, s=backward, x=stop, p=enable, ?=help"));
+
+  setupAP(onControl);
 }
 
 void loop() {
@@ -84,6 +89,9 @@ void loop() {
     currentState = STATE_ENABLED;
     Serial.println(F("✓ Movement complete"));
   }
+
+
+  serverBLD.handleClient();
 }
 
 
@@ -128,6 +136,34 @@ void setRobotSpeed(uint32_t speed) {
     speed = constrain(speed, 0, PWM_RESOLUTION);
     analogWrite(SV_PINS[i], speed);
   }
+}
+
+/**
+ * @brief  Example callback: handles incoming control events.
+ * @param  action       "forward", "backward", or empty if only slider moved
+ * @param  sliderValue  Current slider position (0–100)
+ */
+void onControl(const String& action, int sliderValue) {
+  if (action == "forward") {
+    Serial.println(F("Forward"));
+    beginMovement(true);
+  }
+  else if (action == "backward") {
+    Serial.println(F("Back"));
+    beginMovement(false);
+  }
+  else if (action == "stop") {
+    disableMotors();
+    currentState = STATE_IDLE;
+    Serial.println(F("■ Stopped & disabled"));
+  }
+  else if (action == "start") {
+    enableMotors();
+    currentState = STATE_ENABLED;
+    Serial.println(F("▶ Motors enabled (speed=0)"));
+  }
+  Serial.print("Slider at: ");
+  Serial.println(sliderValue);
 }
 
 void printHelp() {
