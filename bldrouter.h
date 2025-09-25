@@ -49,8 +49,8 @@ void setupWebServer(ControlCallback onControl) {
         <button onclick="sendAction('forward')">Forward</button>
         <button onclick="sendAction('backward')">Backward</button>
         <br><br>
-        <input type="range" id="slider" min="0" max="100" oninput="sendSlider(this.value)" value="50"/>
-        <p>Value: <span id="val">50</span></p>
+        <input type="range" id="slider" min="-100" max="100" oninput="sendSlider(this.value)" value="50"/>
+        <p>Value: <span id="val">0</span></p>
         <button onclick="sendAction('start')">START</button>
         <button onclick="sendAction('stop')">STOP</button>
         <script>

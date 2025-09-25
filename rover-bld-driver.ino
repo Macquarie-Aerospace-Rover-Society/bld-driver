@@ -25,6 +25,18 @@ MovementState currentState       = STATE_IDLE;
 unsigned long  movementStart     = 0;
 const unsigned long movementDur  = 3000;  // ms
 
+// Movement Speed
+#ifndef TARGET_DUTY_CYCLE_PERCENT
+#define TARGET_DUTY_CYCLE_PERCENT 100
+#endif
+const uint32_t DEFAULT_SPEED = ( PWM_RESOLUTION * TARGET_DUTY_CYCLE_PERCENT ) / 100;
+int turnDir = 0;
+uint32_t currentSpeed = 0;
+
+// Movement angle
+// at half speed the the outside travels twice as far as the inside
+const uint32_t SLOW_SIDE_MAX_PERCENT_DIFF = 50;
+
 void setup() {
   // Configure global PWM settings
   for (int i = 0; i < 4; i++) {
@@ -118,6 +130,7 @@ void enableMotors() {
 void disableMotors() {
   for(int i = 0; i< 4; i++){
     pinMode(EN_PINS[i], INPUT);
+    setRobotSpeed(0);
   }
 }
 
@@ -132,10 +145,32 @@ void setRobotDirection(bool dir) {
 
 /// speed: 0 … PWM_RESOLUTION
 void setRobotSpeed(uint32_t speed) {
-  for(int i = 0; i< 4; i++){
-    speed = constrain(speed, 0, PWM_RESOLUTION);
-    analogWrite(SV_PINS[i], speed);
+  speed = constrain(speed, 0, DEFAULT_SPEED);
+  currentSpeed = speed;
+  if(turnDir == 0){
+    for(int i = 0; i< 4; i++){
+      analogWrite(SV_PINS[i], speed);
+    }
+    return;
   }
+  uint32_t fwd_speed = currentSpeed;
+  uint32_t bak_speed = currentSpeed;
+  // Only runs if there is a turn radius
+  if(turnDir > 0){
+    // turnDir positive
+    bak_speed = currentSpeed * 
+      (100 - ( ( SLOW_SIDE_MAX_PERCENT_DIFF * turnDir ) / 100));
+  } else {
+    // turnDir negative
+    fwd_speed = currentSpeed * 
+      (100 + ( ( SLOW_SIDE_MAX_PERCENT_DIFF * turnDir ) / 100));
+  }
+  
+  int i = 0;
+  analogWrite(SV_PINS[i++], fwd_speed);
+  analogWrite(SV_PINS[i++], bak_speed);
+  analogWrite(SV_PINS[i++], fwd_speed);
+  analogWrite(SV_PINS[i++], bak_speed);
 }
 
 /**
@@ -144,6 +179,10 @@ void setRobotSpeed(uint32_t speed) {
  * @param  sliderValue  Current slider position (0–100)
  */
 void onControl(const String& action, int sliderValue) {
+  if(turnDir != sliderValue){
+    turnDir = sliderValue;
+    setRobotSpeed(currentSpeed);
+  }
   if (action == "forward") {
     Serial.println(F("Forward"));
     beginMovement(true);
