@@ -2,9 +2,9 @@
 
 
 // —— Pin assignments ——
+const uint8_t FR_PINS[4]  = {  4,  5,  6,  7 };  // F/R = HIGH: forward, LOW: reverse
 const uint8_t EN_PINS[4]  = { 15, 16, 17, 18 };  // change to your wiring
-const uint8_t FR_PINS[4]  = { 11, 12, 13, 14 };  // F/R = HIGH: forward, LOW: reverse
-const uint8_t SV_PINS[4]  = {  4,  5,  6,  7 };  // PWM input (0…range)
+const uint8_t SV_PINS[4]  = { 11, 12, 13, 14 };  // PWM input (0…range)
 
 // Func prototypes
 
@@ -12,7 +12,7 @@ void setRobotDirection(bool forward);
 
 // —— PWM configuration ——
 const uint32_t PWM_FREQ       = 20000;  // 20 kHz
-const uint32_t PWM_RESOLUTION = 1023;  // 10-bit (0…1023)
+const uint32_t PWM_RESOLUTION = 1023;   // 10-bit (0…1023)
 
 // —— Movement timing ——
 enum MovementState {
@@ -27,7 +27,7 @@ const unsigned long movementDur  = 3000;  // ms
 
 // Movement Speed
 #ifndef TARGET_DUTY_CYCLE_PERCENT
-#define TARGET_DUTY_CYCLE_PERCENT 100
+#define TARGET_DUTY_CYCLE_PERCENT 50
 #endif
 const uint32_t DEFAULT_SPEED = ( PWM_RESOLUTION * TARGET_DUTY_CYCLE_PERCENT ) / 100;
 int turnDir = 0;
@@ -38,11 +38,11 @@ uint32_t currentSpeed = 0;
 const uint32_t SLOW_SIDE_MAX_PERCENT_DIFF = 50;
 
 void setup() {
-  // Configure global PWM settings
-  for (int i = 0; i < 4; i++) {
-    analogWriteResolution(FR_PINS[i],PWM_RESOLUTION);
-    analogWriteFrequency (FR_PINS[i],PWM_FREQ);
-  }
+//  // Configure global PWM settings
+//  for (int i = 0; i < 4; i++) {
+//    analogWriteResolution(SV_PINS[i],PWM_RESOLUTION);
+//    analogWriteFrequency (SV_PINS[i],PWM_FREQ);
+//  }
   
   // Initialize controllers: motors disabled, direction = FWD, speed = 0
   for (int i = 0; i < 4; i++) {
@@ -96,7 +96,7 @@ void loop() {
 
   // non-blocking timeout check
   if ((currentState == STATE_MOVING_FORWARD || currentState == STATE_MOVING_BACKWARD)
-      && (millis() - movementStart >= movementDur)) {
+      && ((millis() - movementStart) >= movementDur)) {
     setRobotSpeed(0);
     currentState = STATE_ENABLED;
     Serial.println(F("✓ Movement complete"));
@@ -118,7 +118,6 @@ void beginMovement(bool forward) {
   currentState    = forward ? STATE_MOVING_FORWARD : STATE_MOVING_BACKWARD;
 }
 
-/// Enable a given motor (0–3) by driving EN pin HIGH
 void enableMotors() {
   for(int i = 0; i< 4; i++){
     pinMode(EN_PINS[i], OUTPUT);
@@ -149,7 +148,7 @@ void setRobotSpeed(uint32_t speed) {
   currentSpeed = speed;
   if(turnDir == 0){
     for(int i = 0; i< 4; i++){
-      analogWrite(SV_PINS[i], speed);
+      analogWrite(SV_PINS[i], currentSpeed);
     }
     return;
   }
