@@ -158,11 +158,11 @@ void setRobotSpeed(uint32_t speed) {
   if(turnDir > 0){
     // turnDir positive
     bak_speed = currentSpeed * 
-      (100 - ( ( SLOW_SIDE_MAX_PERCENT_DIFF * turnDir ) / 100));
+      (1 - ( ( SLOW_SIDE_MAX_PERCENT_DIFF * turnDir ) / 100));
   } else {
     // turnDir negative
     fwd_speed = currentSpeed * 
-      (100 + ( ( SLOW_SIDE_MAX_PERCENT_DIFF * turnDir ) / 100));
+      (1 + ( ( SLOW_SIDE_MAX_PERCENT_DIFF * turnDir ) / 100));
   }
   
   int i = 0;
