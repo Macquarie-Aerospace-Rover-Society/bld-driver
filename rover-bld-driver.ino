@@ -143,9 +143,10 @@ void setRobotDirection(bool dir) {
 }
 
 /// speed: 0 … PWM_RESOLUTION
-void setRobotSpeed(uint32_t speed) {
-  speed = constrain(speed, 0, DEFAULT_SPEED);
-  currentSpeed = speed;
+void setRobotSpeed(uint32_t v_speed) {
+//  speed = constrain(speed, 0, DEFAULT_SPEED);
+//  currentSpeed = speed;
+  currentSpeed = constrain(v_speed, 0, DEFAULT_SPEED);
   if(turnDir == 0){
     for(int i = 0; i< 4; i++){
       analogWrite(SV_PINS[i], currentSpeed);
