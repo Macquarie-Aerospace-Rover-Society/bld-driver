@@ -1,5 +1,5 @@
 #include "bldrouter.h"
-
+#include <esp32-hal-ledc.h>
 
 // —— Pin assignments ——
 const uint8_t FR_PINS[4]  = {  4,  5,  6,  7 };  // F/R = HIGH: forward, LOW: reverse
@@ -48,7 +48,8 @@ void setup() {
   for (int i = 0; i < 4; i++) {
     pinMode(EN_PINS[i], INPUT);          // High-Z => disabled
     pinMode(FR_PINS[i], OUTPUT);
-    pinMode(SV_PINS[i], OUTPUT);
+    ledcSetup(i, PWM_FREQ, 10); // channel, freq, resolution 
+    ledcAttachPin(SV_PINS[i], i); // pin, channel
     analogWrite(SV_PINS[i], 0);          // Zero speed
   }
   currentState = STATE_IDLE;
@@ -92,6 +93,7 @@ void loop() {
         printHelp();
         break;
     }
+    
   }
 
   // non-blocking timeout check
@@ -159,11 +161,11 @@ void setRobotSpeed(uint32_t v_speed) {
   if(turnDir > 0){
     // turnDir positive
     bak_speed = currentSpeed * 
-      (1 - ( ( SLOW_SIDE_MAX_PERCENT_DIFF * turnDir ) / 100));
+      (SLOW_SIDE_MAX_PERCENT_DIFF - ( ( SLOW_SIDE_MAX_PERCENT_DIFF * turnDir ) / 100));
   } else {
     // turnDir negative
     fwd_speed = currentSpeed * 
-      (1 + ( ( SLOW_SIDE_MAX_PERCENT_DIFF * turnDir ) / 100));
+      (SLOW_SIDE_MAX_PERCENT_DIFF + ( ( SLOW_SIDE_MAX_PERCENT_DIFF * turnDir ) / 100));
   }
   
   int i = 0;
