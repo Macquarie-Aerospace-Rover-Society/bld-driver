@@ -2,25 +2,26 @@
 #include "bldrouter.h"
 
 // —— Pin assignments ——
-const uint8_t FR_PINS[4]  = {  4,  5,  6,  7 };  // F/R = HIGH: forward, LOW: reverse
-const uint8_t EN_PINS[4]  = { 15, 16, 17, 18 };  // change to your wiring
-const uint8_t SV_PINS[4]  = { 11, 12, 13, 14 };  // PWM output pins (0…255)
+const uint8_t FR_PINS[4] = {4, 5, 6, 7};     // F/R = HIGH: forward, LOW: reverse
+const uint8_t EN_PINS[4] = {15, 16, 17, 18}; // change to your wiring
+const uint8_t SV_PINS[4] = {11, 12, 13, 14}; // PWM output pins (0…255)
 
 // Func prototypes
 void setRobotDirection(bool forward);
 void setRobotSpeed(int32_t v_speed); // accepts 0..DEFAULT_SPEED
 void printHelp();
-void onControl(const String& action, int sliderValue);
+void onControl(const String &action, int sliderValue);
 
 // —— PWM configuration ——
-const uint32_t PWM_RESOLUTION = 255;            // analogWrite range 0..255
+const uint32_t PWM_RESOLUTION = 255; // analogWrite range 0..255
 #ifndef TARGET_DUTY_CYCLE_PERCENT
 #define TARGET_DUTY_CYCLE_PERCENT 80
 #endif
-const uint32_t DEFAULT_SPEED = ( PWM_RESOLUTION * TARGET_DUTY_CYCLE_PERCENT ) / 100;
+const uint32_t DEFAULT_SPEED = (PWM_RESOLUTION * TARGET_DUTY_CYCLE_PERCENT) / 100;
 
 // —— Movement timing ——
-enum MovementState {
+enum MovementState
+{
   STATE_IDLE,
   STATE_ENABLED,
   STATE_MOVING_FORWARD,
@@ -28,18 +29,20 @@ enum MovementState {
 };
 MovementState currentState = STATE_IDLE;
 unsigned long movementStart = 0;
-const unsigned long movementDur = 3000;  // ms
+const unsigned long movementDur = 3000; // ms
 
 // Movement Speed & Turning
-int turnDir = 0;          // now -100..+100 (center=0)
-int32_t currentSpeed = 0; // 0..DEFAULT_SPEED
+int turnDir = 0;                                // now -100..+100 (center=0)
+int32_t currentSpeed = 0;                       // 0..DEFAULT_SPEED
 const uint32_t SLOW_SIDE_MAX_PERCENT_DIFF = 90; // max reduction percent on inner side (increased)
-const float outerBoostPct = 20.0f; // percent boost for outer side (0..100)
+const float outerBoostPct = 20.0f;              // percent boost for outer side (0..100)
 
-void setup() {
+void setup()
+{
   Serial.begin(115200);
 
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < 4; i++)
+  {
     pinMode(EN_PINS[i], INPUT); // High-Z => disabled
     pinMode(FR_PINS[i], OUTPUT);
     pinMode(SV_PINS[i], OUTPUT);
@@ -53,21 +56,41 @@ void setup() {
   setupAP(onControl);
 }
 
-void loop() {
-  while (Serial.available()) {
+void loop()
+{
+  while (Serial.available())
+  {
     char cmd = Serial.read();
-    if (cmd == '\n' || cmd == '\r') continue;
-    switch (cmd) {
-      case 'w': Serial.println(F("Forward")); beginMovement(true); break;
-      case 's': Serial.println(F("Back"));    beginMovement(false); break;
-      case 'x': disableMotors(); currentState = STATE_IDLE; Serial.println(F("■ Stopped & disabled")); break;
-      case 'p': enableMotors();  currentState = STATE_ENABLED; Serial.println(F("▶ Motors enabled (speed=0)")); break;
-      default: printHelp(); break;
+    if (cmd == '\n' || cmd == '\r')
+      continue;
+    switch (cmd)
+    {
+    case 'w':
+      Serial.println(F("Forward"));
+      beginMovement(true);
+      break;
+    case 's':
+      Serial.println(F("Back"));
+      beginMovement(false);
+      break;
+    case 'x':
+      disableMotors();
+      currentState = STATE_IDLE;
+      Serial.println(F("■ Stopped & disabled"));
+      break;
+    case 'p':
+      enableMotors();
+      currentState = STATE_ENABLED;
+      Serial.println(F("▶ Motors enabled (speed=0)"));
+      break;
+    default:
+      printHelp();
+      break;
     }
   }
 
-  if ((currentState == STATE_MOVING_FORWARD || currentState == STATE_MOVING_BACKWARD)
-      && ((millis() - movementStart) >= movementDur)) {
+  if ((currentState == STATE_MOVING_FORWARD || currentState == STATE_MOVING_BACKWARD) && ((millis() - movementStart) >= movementDur))
+  {
     setRobotSpeed(0);
     currentState = STATE_ENABLED;
     Serial.println(F("✓ Movement complete"));
@@ -76,8 +99,10 @@ void loop() {
   serverBLD.handleClient();
 }
 
-void beginMovement(bool forward) {
-  if (currentState != STATE_ENABLED) {
+void beginMovement(bool forward)
+{
+  if (currentState != STATE_ENABLED)
+  {
     Serial.println(F("Motors not enabled"));
     return;
   }
@@ -87,21 +112,26 @@ void beginMovement(bool forward) {
   currentState = forward ? STATE_MOVING_FORWARD : STATE_MOVING_BACKWARD;
 }
 
-void enableMotors() {
-  for (int i = 0; i < 4; i++) {
+void enableMotors()
+{
+  for (int i = 0; i < 4; i++)
+  {
     pinMode(EN_PINS[i], OUTPUT);
     digitalWrite(EN_PINS[i], LOW);
   }
 }
 
-void disableMotors() {
-  for (int i = 0; i < 4; i++) {
+void disableMotors()
+{
+  for (int i = 0; i < 4; i++)
+  {
     pinMode(EN_PINS[i], INPUT);
   }
   setRobotSpeed(0);
 }
 
-void setRobotDirection(bool dir) {
+void setRobotDirection(bool dir)
+{
   int i = 0;
   digitalWrite(FR_PINS[i++], dir ? HIGH : LOW);
   digitalWrite(FR_PINS[i++], dir ? LOW : HIGH);
@@ -111,10 +141,13 @@ void setRobotDirection(bool dir) {
 
 // v_speed: 0..DEFAULT_SPEED
 // turnDir: -100..+100, where -100 = full left, 0 = straight, +100 = full right
-void setRobotSpeed(int32_t v_speed) {
+void setRobotSpeed(int32_t v_speed)
+{
   // clamp speed
-  if (v_speed < 0) v_speed = 0;
-  if (v_speed > (int32_t)PWM_RESOLUTION) v_speed = PWM_RESOLUTION;
+  if (v_speed < 0)
+    v_speed = 0;
+  if (v_speed > (int32_t)PWM_RESOLUTION)
+    v_speed = PWM_RESOLUTION;
   // currentSpeed uses requested v_speed (not constrained to DEFAULT_SPEED)
   currentSpeed = constrain(v_speed, 0L, (long)PWM_RESOLUTION);
 
@@ -122,8 +155,10 @@ void setRobotSpeed(int32_t v_speed) {
   float tf = (float)constrain(turnDir, -100, 100) / 100.0f;
 
   // Straight
-  if (fabs(tf) < 0.0001f) {
-    for (int i = 0; i < 4; ++i) analogWrite(SV_PINS[i], currentSpeed);
+  if (fabs(tf) < 0.0001f)
+  {
+    for (int i = 0; i < 4; ++i)
+      analogWrite(SV_PINS[i], currentSpeed);
     return;
   }
 
@@ -139,47 +174,125 @@ void setRobotSpeed(int32_t v_speed) {
   int32_t leftSpeed = currentSpeed;
   int32_t rightSpeed = currentSpeed;
 
-  if (tf > 0.0f) {
+  if (tf > 0.0f)
+  {
     // turning right -> right side is inner -> slow right, boost left (outer)
     rightSpeed = (int32_t)round((float)currentSpeed * innerScale);
-    leftSpeed  = (int32_t)round(constrain((float)currentSpeed * boostFactor, 0.0f, (float)PWM_RESOLUTION));
-  } else {
+    leftSpeed = (int32_t)round(constrain((float)currentSpeed * boostFactor, 0.0f, (float)PWM_RESOLUTION));
+  }
+  else
+  {
     // turning left -> left side is inner -> slow left, boost right (outer)
-    leftSpeed  = (int32_t)round((float)currentSpeed * innerScale);
+    leftSpeed = (int32_t)round((float)currentSpeed * innerScale);
     rightSpeed = (int32_t)round(constrain((float)currentSpeed * boostFactor, 0.0f, (float)PWM_RESOLUTION));
   }
 
   // Apply speeds
   analogWrite(SV_PINS[0], constrain(rightSpeed, 0, 255)); // front-right
-  analogWrite(SV_PINS[1], constrain(leftSpeed,  0, 255)); // front-left
+  analogWrite(SV_PINS[1], constrain(leftSpeed, 0, 255));  // front-left
   analogWrite(SV_PINS[2], constrain(rightSpeed, 0, 255)); // back-right
-  analogWrite(SV_PINS[3], constrain(leftSpeed,  0, 255)); // back-left
+  analogWrite(SV_PINS[3], constrain(leftSpeed, 0, 255));  // back-left
 }
 
 /**
- * onControl: action = "forward"/"backward"/"stop"/"start" or empty; sliderValue = -100..100
+ * onControl: action = "forward"/"backward"/"stop"/"start"/"gamepad:speed:turn" or empty; sliderValue = -100..100
  */
-void onControl(const String& action, int sliderValue) {
-  // Expect sliderValue in -100..100. If your UI sends 0..100, convert externally.
-  if (sliderValue < -100) sliderValue = -100;
-  if (sliderValue > 100)  sliderValue = 100;
+void onControl(const String &action, int sliderValue)
+{
+  // Handle gamepad input
+  if (action.startsWith("gamepad:"))
+  {
+    // Parse gamepad data: "gamepad:speed:turn"
+    int firstColon = action.indexOf(':');
+    int secondColon = action.indexOf(':', firstColon + 1);
 
-  if (turnDir != sliderValue) {
+    if (firstColon > 0 && secondColon > firstColon)
+    {
+      int speed = action.substring(firstColon + 1, secondColon).toInt(); // -255 to 255
+      int turn = action.substring(secondColon + 1).toInt();              // -100 to 100
+
+      // Update turn direction
+      if (turnDir != turn)
+      {
+        turnDir = turn;
+      }
+
+      // Handle speed and direction
+      if (speed == 0)
+      {
+        // Return to idle/enabled state
+        if (currentState != STATE_IDLE)
+        {
+          setRobotSpeed(0);
+          if (currentState != STATE_ENABLED)
+          {
+            currentState = STATE_ENABLED;
+          }
+        }
+      }
+      else
+      {
+        // Ensure motors are enabled
+        if (currentState == STATE_IDLE)
+        {
+          enableMotors();
+          currentState = STATE_ENABLED;
+        }
+
+        // Set direction based on speed sign
+        bool forward = (speed > 0);
+        setRobotDirection(forward);
+
+        // Apply speed (use absolute value)
+        int absSpeed = abs(speed);
+        if (absSpeed > 255)
+          absSpeed = 255;
+        setRobotSpeed(absSpeed);
+
+        // Update state
+        currentState = forward ? STATE_MOVING_FORWARD : STATE_MOVING_BACKWARD;
+        movementStart = millis(); // Reset timer for timeout tracking
+      }
+
+      Serial.print("Gamepad - Speed: ");
+      Serial.print(speed);
+      Serial.print(", Turn: ");
+      Serial.println(turn);
+    }
+    return;
+  }
+
+  // Handle manual slider control
+  // Expect sliderValue in -100..100. If your UI sends 0..100, convert externally.
+  if (sliderValue < -100)
+    sliderValue = -100;
+  if (sliderValue > 100)
+    sliderValue = 100;
+
+  if (turnDir != sliderValue)
+  {
     turnDir = sliderValue;
     setRobotSpeed(currentSpeed); // reapply current speed with new turn
   }
 
-  if (action == "forward") {
+  if (action == "forward")
+  {
     Serial.println(F("Forward"));
     beginMovement(true);
-  } else if (action == "backward") {
+  }
+  else if (action == "backward")
+  {
     Serial.println(F("Back"));
     beginMovement(false);
-  } else if (action == "stop") {
+  }
+  else if (action == "stop")
+  {
     disableMotors();
     currentState = STATE_IDLE;
     Serial.println(F("■ Stopped & disabled"));
-  } else if (action == "start") {
+  }
+  else if (action == "start")
+  {
     enableMotors();
     currentState = STATE_ENABLED;
     Serial.println(F("▶ Motors enabled (speed=0)"));
@@ -189,7 +302,8 @@ void onControl(const String& action, int sliderValue) {
   Serial.println(sliderValue);
 }
 
-void printHelp() {
+void printHelp()
+{
   Serial.println(F("Commands:"));
   Serial.println(F("  w → forward 3s"));
   Serial.println(F("  s → backward 3s"));
