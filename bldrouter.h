@@ -94,8 +94,9 @@ void setupWebServer(ControlCallback onControl)
           </div>
           
           <div class="info">
-            <div class="info-item">Axis[0][0]: <span id="axis-0">0.00</span></div>
-            <div class="info-item">Axis[0][1]: <span id="axis-1">0.00</span></div>
+            <div class="info-item">Button[1][7] (Fwd): <span id="btn-7">0.00</span></div>
+            <div class="info-item">Button[1][6] (Back): <span id="btn-6">0.00</span></div>
+            <div class="info-item">Axis[0][0] (Turn): <span id="axis-0">0.00</span></div>
             <div class="info-item">Speed: <span id="speed-val">0</span></div>
             <div class="info-item">Turn: <span id="turn-val">0</span></div>
           </div>
@@ -175,16 +176,21 @@ void setupWebServer(ControlCallback onControl)
             if (currentGamepad) {
               document.getElementById('gamepad-status').innerHTML = '<span class="connected">⬤ Connected: ' + currentGamepad.id + '</span>';
               
-              // Read axes [0][0] and [0][1] (axes 0 and 1 - left stick)
-              const axisY = currentGamepad.axes[1] || 0; // Axis [0][1] - forward/backward
-              const axisX = currentGamepad.axes[0] || 0; // Axis [0][0] - left/right (turning)
+              // Read button[1][7] for forward, button[1][6] for backward (buttons 7 and 6)
+              const button7Value = (currentGamepad.buttons[7] && currentGamepad.buttons[7].value) || 0; // Forward trigger
+              const button6Value = (currentGamepad.buttons[6] && currentGamepad.buttons[6].value) || 0; // Backward trigger
               
-              // Display axis values
-              document.getElementById('axis-0').textContent = axisY.toFixed(2);
-              document.getElementById('axis-1').textContent = axisX.toFixed(2);
+              // Read axis [0][0] (axis 0) for turning
+              const axisTurn = currentGamepad.axes[0] || 0; // Axis [0][0] - left/right (turning)
               
-              // Update visualizer
-              updateVisualizer(axisX, axisY);
+              // Display values
+              document.getElementById('btn-7').textContent = button7Value.toFixed(2);
+              document.getElementById('btn-6').textContent = button6Value.toFixed(2);
+              document.getElementById('axis-0').textContent = axisTurn.toFixed(2);
+              
+              // Update visualizer (turn on X, combined trigger on Y)
+              const visualY = button6Value - button7Value; // Backward positive, forward negative
+              updateVisualizer(axisTurn, visualY);
               
               // Button 4 (index 4) - cycle speed
               const button4 = currentGamepad.buttons[4] && currentGamepad.buttons[4].pressed;
@@ -205,16 +211,22 @@ void setupWebServer(ControlCallback onControl)
               
               // Apply deadzone
               const deadzone = 0.15;
-              const processedY = Math.abs(axisY) < deadzone ? 0 : axisY;
-              const processedX = Math.abs(axisX) < deadzone ? 0 : axisX;
+              const turnDeadzone = 0.1;
+              const processedTurn = Math.abs(axisTurn) < turnDeadzone ? 0 : axisTurn;
               
-              // Calculate speed and turn
-              // Speed: -255 to 255 (negative for reverse)
-              const rawSpeed = -processedY * 255 * speedMultipliers[speedMode];
-              const speed = Math.round(rawSpeed);
+              // Calculate speed from triggers (0 to 1 range)
+              // Forward (button 7) = positive speed, Backward (button 6) = negative speed
+              let netSpeed = 0;
+              if (button7Value > 0.05) {
+                netSpeed = button7Value * 255 * speedMultipliers[speedMode]; // Forward
+              } else if (button6Value > 0.05) {
+                netSpeed = -button6Value * 255 * speedMultipliers[speedMode]; // Backward
+              }
+              
+              const speed = Math.round(netSpeed);
               
               // Turn: -100 to 100
-              const turn = Math.round(processedX * 100);
+              const turn = Math.round(processedTurn * 100);
               
               document.getElementById('speed-val').textContent = speed;
               document.getElementById('turn-val').textContent = turn;
@@ -223,7 +235,7 @@ void setupWebServer(ControlCallback onControl)
               updateOutputBars(Math.abs(speed), turn / 100);
               
               // Send to rover if enabled and there's input
-              if (roverEnabled && (Math.abs(processedY) > 0.001 || Math.abs(processedX) > 0.001)) {
+              if (roverEnabled && (button7Value > 0.05 || button6Value > 0.05 || Math.abs(processedTurn) > 0.001)) {
                 clearTimeout(idleTimeout);
                 sendGamepadData(speed, turn);
               } else if (roverEnabled) {
@@ -238,8 +250,9 @@ void setupWebServer(ControlCallback onControl)
             } else {
               document.getElementById('gamepad-status').innerHTML = '<span class="disconnected">⬤ Not Connected</span>';
               updateVisualizer(0, 0);
+              document.getElementById('btn-7').textContent = '0.00';
+              document.getElementById('btn-6').textContent = '0.00';
               document.getElementById('axis-0').textContent = '0.00';
-              document.getElementById('axis-1').textContent = '0.00';
               document.getElementById('speed-val').textContent = '0';
               document.getElementById('turn-val').textContent = '0';
               updateOutputBars(0, 0);
