@@ -10,7 +10,8 @@ const uint8_t SV_PINS[4] = {11, 12, 13, 14}; // PWM output pins (0…255)
 void setRobotDirection(bool forward);
 void setRobotSpeed(int32_t v_speed); // accepts 0..DEFAULT_SPEED
 void printHelp();
-void onControl(const String &action, int sliderValue);
+void onManualControl(const String &action, int sliderValue);
+void onGamepadControl(int speed, int turn);
 
 // —— PWM configuration ——
 const uint32_t PWM_RESOLUTION = 255; // analogWrite range 0..255
@@ -29,13 +30,16 @@ enum MovementState
 };
 MovementState currentState = STATE_IDLE;
 unsigned long movementStart = 0;
-const unsigned long movementDur = 3000; // ms
+const unsigned long movementDur = 3000; // ms - only used for manual control
 
 // Movement Speed & Turning
 int turnDir = 0;                                // now -100..+100 (center=0)
 int32_t currentSpeed = 0;                       // 0..DEFAULT_SPEED
 const uint32_t SLOW_SIDE_MAX_PERCENT_DIFF = 90; // max reduction percent on inner side (increased)
 const float outerBoostPct = 20.0f;              // percent boost for outer side (0..100)
+
+// Control mode tracking
+bool isGamepadMode = false; // true when gamepad is active
 
 void setup()
 {
@@ -53,7 +57,7 @@ void setup()
   setRobotDirection(true);
   Serial.println(F("Commands: w=forward, s=backward, x=stop, p=enable, ?=help"));
 
-  setupAP(onControl);
+  setupAP(onManualControl, onGamepadControl);
 }
 
 void loop()
@@ -89,7 +93,10 @@ void loop()
     }
   }
 
-  if ((currentState == STATE_MOVING_FORWARD || currentState == STATE_MOVING_BACKWARD) && ((millis() - movementStart) >= movementDur))
+  // Auto-stop timeout only applies to manual control mode
+  if (!isGamepadMode &&
+      (currentState == STATE_MOVING_FORWARD || currentState == STATE_MOVING_BACKWARD) &&
+      ((millis() - movementStart) >= movementDur))
   {
     setRobotSpeed(0);
     currentState = STATE_ENABLED;
@@ -195,75 +202,15 @@ void setRobotSpeed(int32_t v_speed)
 }
 
 /**
- * onControl: action = "forward"/"backward"/"stop"/"start"/"gamepad:speed:turn" or empty; sliderValue = -100..100
+ * onManualControl: Handles discrete button commands and slider input
+ * action = "forward"/"backward"/"stop"/"start" or empty
+ * sliderValue = -100..100 (turn direction)
  */
-void onControl(const String &action, int sliderValue)
+void onManualControl(const String &action, int sliderValue)
 {
-  // Handle gamepad input
-  if (action.startsWith("gamepad:"))
-  {
-    // Parse gamepad data: "gamepad:speed:turn"
-    int firstColon = action.indexOf(':');
-    int secondColon = action.indexOf(':', firstColon + 1);
+  isGamepadMode = false; // Switch to manual control mode
 
-    if (firstColon > 0 && secondColon > firstColon)
-    {
-      int speed = action.substring(firstColon + 1, secondColon).toInt(); // -255 to 255
-      int turn = action.substring(secondColon + 1).toInt();              // -100 to 100
-
-      // Update turn direction
-      if (turnDir != turn)
-      {
-        turnDir = turn;
-      }
-
-      // Handle speed and direction
-      if (speed == 0)
-      {
-        // Return to idle/enabled state
-        if (currentState != STATE_IDLE)
-        {
-          setRobotSpeed(0);
-          if (currentState != STATE_ENABLED)
-          {
-            currentState = STATE_ENABLED;
-          }
-        }
-      }
-      else
-      {
-        // Ensure motors are enabled
-        if (currentState == STATE_IDLE)
-        {
-          enableMotors();
-          currentState = STATE_ENABLED;
-        }
-
-        // Set direction based on speed sign
-        bool forward = (speed > 0);
-        setRobotDirection(forward);
-
-        // Apply speed (use absolute value)
-        int absSpeed = abs(speed);
-        if (absSpeed > 255)
-          absSpeed = 255;
-        setRobotSpeed(absSpeed);
-
-        // Update state
-        currentState = forward ? STATE_MOVING_FORWARD : STATE_MOVING_BACKWARD;
-        movementStart = millis(); // Reset timer for timeout tracking
-      }
-
-      Serial.print("Gamepad - Speed: ");
-      Serial.print(speed);
-      Serial.print(", Turn: ");
-      Serial.println(turn);
-    }
-    return;
-  }
-
-  // Handle manual slider control
-  // Expect sliderValue in -100..100. If your UI sends 0..100, convert externally.
+  // Handle turn slider control
   if (sliderValue < -100)
     sliderValue = -100;
   if (sliderValue > 100)
@@ -272,34 +219,107 @@ void onControl(const String &action, int sliderValue)
   if (turnDir != sliderValue)
   {
     turnDir = sliderValue;
-    setRobotSpeed(currentSpeed); // reapply current speed with new turn
+    // Only reapply speed if motors are actively moving
+    if (currentSpeed > 0)
+    {
+      setRobotSpeed(currentSpeed);
+    }
   }
 
+  // Handle button commands
   if (action == "forward")
   {
-    Serial.println(F("Forward"));
+    Serial.println(F("Manual: Forward"));
     beginMovement(true);
   }
   else if (action == "backward")
   {
-    Serial.println(F("Back"));
+    Serial.println(F("Manual: Backward"));
     beginMovement(false);
   }
   else if (action == "stop")
   {
     disableMotors();
     currentState = STATE_IDLE;
-    Serial.println(F("■ Stopped & disabled"));
+    turnDir = 0; // Reset turn on stop
+    Serial.println(F("■ Manual: Stopped & disabled"));
   }
   else if (action == "start")
   {
     enableMotors();
     currentState = STATE_ENABLED;
-    Serial.println(F("▶ Motors enabled (speed=0)"));
+    Serial.println(F("▶ Manual: Motors enabled (speed=0)"));
   }
 
-  Serial.print("Slider at: ");
-  Serial.println(sliderValue);
+  if (action.length() > 0 || turnDir != 0)
+  {
+    Serial.print("Manual - Action: ");
+    Serial.print(action);
+    Serial.print(", Turn: ");
+    Serial.println(turnDir);
+  }
+}
+
+/**
+ * onGamepadControl: Handles continuous real-time input from gamepad
+ * speed = -255 to 255 (negative=backward, positive=forward, 0=stop)
+ * turn = -100 to 100 (negative=left, positive=right, 0=straight)
+ */
+void onGamepadControl(int speed, int turn)
+{
+  isGamepadMode = true; // Switch to gamepad control mode
+
+  // Update turn direction
+  turnDir = constrain(turn, -100, 100);
+
+  // Handle speed and direction
+  if (speed == 0 && turn == 0)
+  {
+    // Complete stop - return to enabled state
+    if (currentState != STATE_ENABLED)
+    {
+      setRobotSpeed(0);
+      currentState = STATE_ENABLED;
+    }
+  }
+  else if (speed == 0)
+  {
+    // Only turning input, but no forward/backward speed
+    // Keep current state but set speed to 0
+    setRobotSpeed(0);
+  }
+  else
+  {
+    // Active movement
+    // Ensure motors are enabled
+    if (currentState == STATE_IDLE)
+    {
+      enableMotors();
+      currentState = STATE_ENABLED;
+    }
+
+    // Set direction based on speed sign
+    bool forward = (speed > 0);
+    setRobotDirection(forward);
+
+    // Apply speed (use absolute value)
+    int absSpeed = constrain(abs(speed), 0, 255);
+    setRobotSpeed(absSpeed);
+
+    // Update state
+    currentState = forward ? STATE_MOVING_FORWARD : STATE_MOVING_BACKWARD;
+  }
+
+  // Gamepad gives continuous feedback, so we log less frequently
+  static unsigned long lastLog = 0;
+  if (millis() - lastLog > 200 || speed == 0) // Log every 200ms or on stop
+  {
+    Serial.print("Gamepad - Speed: ");
+    Serial.print(speed);
+    Serial.print(", Turn: ");
+    Serial.println(turn);
+    lastLog = millis();
+  }
 }
 
 void printHelp()
