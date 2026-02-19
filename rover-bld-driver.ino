@@ -135,6 +135,7 @@ void disableMotors()
     pinMode(EN_PINS[i], INPUT);
   }
   setRobotSpeed(0);
+  currentState = STATE_IDLE;
 }
 
 void setRobotDirection(bool dir)
@@ -195,10 +196,10 @@ void setRobotSpeed(int32_t v_speed)
   }
 
   // Apply speeds
-  analogWrite(SV_PINS[0], constrain(rightSpeed, 0, 255)); // front-right
-  analogWrite(SV_PINS[1], constrain(leftSpeed, 0, 255));  // front-left
-  analogWrite(SV_PINS[2], constrain(rightSpeed, 0, 255)); // back-right
-  analogWrite(SV_PINS[3], constrain(leftSpeed, 0, 255));  // back-left
+  analogWrite(SV_PINS[1], constrain(rightSpeed, 0, 255)); // front-right
+  analogWrite(SV_PINS[0], constrain(leftSpeed, 0, 255));  // front-left
+  analogWrite(SV_PINS[3], constrain(rightSpeed, 0, 255)); // back-right
+  analogWrite(SV_PINS[2], constrain(leftSpeed, 0, 255));  // back-left
 }
 
 /**
@@ -292,11 +293,9 @@ void onGamepadControl(int speed, int turn)
   {
     // Active movement
     // Ensure motors are enabled
+    enableMotors();
     if (currentState == STATE_IDLE)
-    {
-      enableMotors();
       currentState = STATE_ENABLED;
-    }
 
     // Set direction based on speed sign
     bool forward = (speed > 0);
