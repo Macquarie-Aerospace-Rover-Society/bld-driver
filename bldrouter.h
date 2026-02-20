@@ -13,6 +13,14 @@ WebServer serverBLD(80);
 // Define the callback signatures
 typedef void (*ManualControlCallback)(const String &action, int sliderValue);
 typedef void (*GamepadControlCallback)(int speed, int turn);
+typedef void (*DisableMotors)();
+
+// ===== KEEPALIVE =====
+// millis is an unsigned long which will wrap back to zero after a very long time
+// (much much longer than we will ever have to worry about)
+unsigned long lastHeartbeat = 0;
+const unsigned long KEEPALIVE_TIMEOUT_MS = 500;
+bool clientConnected = false; 
 
 /**
  * @brief  Initializes and starts the web server with separate routes for manual and gamepad control.
@@ -21,15 +29,24 @@ typedef void (*GamepadControlCallback)(int speed, int turn);
  */
 void setupWebServer(ManualControlCallback onManualControl, GamepadControlCallback onGamepadControl)
 {
+  // ===== KEEPALIVE ROUTE =====
+  serverBLD.on("/keepalive", HTTP_GET, []() {
+    lastHeartbeat = millis();
+    clientConnected = true;
+    serverBLD.send(200, "text/plain", "OK");
+  });
+
   // ===== MANUAL CONTROL ROUTE =====
   serverBLD.on("/", HTTP_GET, [onManualControl]()
-               {
+  {
     // Read query parameters for manual control
     String action = serverBLD.arg("action");
     int sliderValue = serverBLD.arg("slider").toInt();
     
     // Invoke manual control callback if there's any input
     if (action.length() || serverBLD.hasArg("slider")) {
+      lastHeartbeat = millis(); // Count an input signal as a heartbeat
+      clientConnected = true;
       onManualControl(action, sliderValue);
     }
 
@@ -41,7 +58,7 @@ void setupWebServer(ManualControlCallback onManualControl, GamepadControlCallbac
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Rover Manual Controller</title>
-         <style>
+        <style>
           body { 
             font-family: Arial, sans-serif; 
             text-align: center; 
@@ -179,6 +196,11 @@ void setupWebServer(ManualControlCallback onManualControl, GamepadControlCallbac
 
           // Initialize display
           sendSlider(0);
+
+          // Keepalive: ping server every 200ms
+          setInterval(() => {
+            fetch('/keepalive').catch(() => console.error('Keepalive ping failed'));
+          }, 200);
         </script>
       </body>
       </html>)rawliteral";
@@ -194,6 +216,8 @@ void setupWebServer(ManualControlCallback onManualControl, GamepadControlCallbac
     
     // Invoke gamepad control callback
     if (serverBLD.hasArg("speed") || serverBLD.hasArg("turn")) {
+      lastHeartbeat = millis(); // Update heartbeat on command
+      clientConnected = true;
       onGamepadControl(speed, turn);
     }
 
@@ -411,6 +435,11 @@ void setupWebServer(ManualControlCallback onManualControl, GamepadControlCallbac
           
           // Start polling
           pollGamepad();
+
+          // Keepalive sender: ping server every 200ms
+          setInterval(() => {
+            fetch('/keepalive').catch(() => console.error('Keepalive ping failed'));
+          }, 200);
         </script>
       </body>
       </html>)rawliteral";
@@ -451,4 +480,19 @@ void setupAP(ManualControlCallback onManualControl, GamepadControlCallback onGam
 
   // Initialize the server, passing our callbacks
   setupWebServer(onManualControl, onGamepadControl);
+}
+
+/**
+ * @brief Checks if the client has disconnected or stopped sending data.
+ */
+inline void checkClientKeepalive(DisableMotors disableMotors) {
+  if (clientConnected && (millis() - lastHeartbeat > KEEPALIVE_TIMEOUT_MS)) {
+    Serial.println("Timeout! Stopping rover.");
+    
+    // Stop the rover immediately
+    disableMotors();
+    
+    // Prevent spamming the stop command
+    clientConnected = false; 
+  }
 }

@@ -62,6 +62,9 @@ void setup()
 
 void loop()
 {
+  // Check the keepalive timer to make sure the control client is still working
+  checkClientKeepalive(disableMotors);
+
   while (Serial.available())
   {
     char cmd = Serial.read();
