@@ -41,7 +41,7 @@ void setupWebServer(ManualControlCallback onManualControl, GamepadControlCallbac
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Rover Manual Controller</title>
-        <style>
+         <style>
           body { 
             font-family: Arial, sans-serif; 
             text-align: center; 
@@ -343,13 +343,18 @@ void setupWebServer(ManualControlCallback onManualControl, GamepadControlCallbac
               }
               lastButton4 = button4;
               
-              // Button 5 - enable/disable rover
+              // Button 5 - enable/disable rover dead-man switch (enable only while held)
               const button5 = currentGamepad.buttons[5] && currentGamepad.buttons[5].pressed;
-              if (button5 && !lastButton5) {
-                roverEnabled = !roverEnabled;
-                document.getElementById('rover-state').textContent = roverEnabled ? 'Enabled' : 'Disabled';
+              if (button5) {
                 if (!roverEnabled) {
-                  sendGamepadData(0, 0); // Stop rover when disabled
+                  roverEnabled = true;
+                  document.getElementById('rover-state').textContent = 'Enabled';
+                }
+              } else {
+                if (roverEnabled) {
+                  roverEnabled = false;
+                  document.getElementById('rover-state').textContent = 'Disabled';
+                  sendGamepadData(0, 0); // Stop rover immediately when Button 5 is released
                 }
               }
               lastButton5 = button5;
