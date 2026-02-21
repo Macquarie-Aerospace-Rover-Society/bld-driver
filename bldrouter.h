@@ -2,10 +2,10 @@
 #include <WebServer.h>
 
 // Start ESP as an access point
-const char *ssid = "mars-Wally";
+const char* ssid     = "mars-Wally";
 // Need to have at least 8 characters
-// const char* password = "marsmarsmars";
-const char *password = ""; // Open network
+//const char* password = "marsmarsmars";
+const char* password = ""; // Open network
 
 // Create a web server running on port 80
 WebServer serverBLD(80);
@@ -27,7 +27,7 @@ bool clientConnected = false;
  * @param  onManualControl  Function pointer called for manual button/slider input.
  * @param  onGamepadControl Function pointer called for gamepad input.
  */
-void setupWebServer(ManualControlCallback onManualControl, GamepadControlCallback onGamepadControl)
+void setupWebServer(ManualControlCallback onControl, GamepadControlCallback onGamepadControl)
 {
   // ===== KEEPALIVE ROUTE =====
   serverBLD.on("/keepalive", HTTP_GET, []() {
@@ -37,20 +37,19 @@ void setupWebServer(ManualControlCallback onManualControl, GamepadControlCallbac
   });
 
   // ===== MANUAL CONTROL ROUTE =====
-  serverBLD.on("/", HTTP_GET, [onManualControl]()
-  {
-    // Read query parameters for manual control
-    String action = serverBLD.arg("action");
-    int sliderValue = serverBLD.arg("slider").toInt();
-    
-    // Invoke manual control callback if there's any input
+  serverBLD.on("/", HTTP_GET, [onControl]() {
+    // Read query parameters
+    String action    = serverBLD.arg("action");
+    int sliderValue  = serverBLD.arg("slider").toInt();
+
+    // Invoke user callback if there's any input
     if (action.length() || serverBLD.hasArg("slider")) {
       lastHeartbeat = millis(); // Count an input signal as a heartbeat
       clientConnected = true;
-      onManualControl(action, sliderValue);
+      onControl(action, sliderValue);
     }
 
-    // Manual control HTML page
+    // HTML page with two buttons and a slider
     String html = R"rawliteral(
       <!DOCTYPE html>
       <html lang="en">
@@ -205,11 +204,11 @@ void setupWebServer(ManualControlCallback onManualControl, GamepadControlCallbac
       </body>
       </html>)rawliteral";
 
-    serverBLD.send(200, "text/html", html); });
+    serverBLD.send(200, "text/html", html);
+  });
 
   // ===== GAMEPAD CONTROL ROUTE =====
-  serverBLD.on("/gamepad", HTTP_GET, [onGamepadControl]()
-               {
+  serverBLD.on("/gamepad", HTTP_GET, [onGamepadControl]() {
     // Read gamepad input parameters
     int speed = serverBLD.arg("speed").toInt();  // -255 to 255
     int turn = serverBLD.arg("turn").toInt();    // -100 to 100
@@ -222,7 +221,7 @@ void setupWebServer(ManualControlCallback onManualControl, GamepadControlCallbac
     }
 
     // Serve gamepad-specific HTML page
-    String html = R"rawliteral(
+    String htmlGamePad = R"rawliteral(
       <!DOCTYPE html>
       <html lang="en">
       <head>
@@ -444,7 +443,8 @@ void setupWebServer(ManualControlCallback onManualControl, GamepadControlCallbac
       </body>
       </html>)rawliteral";
 
-    serverBLD.send(200, "text/html", html); });
+    serverBLD.send(200, "text/html", htmlGamePad);
+  });
 
   serverBLD.begin();
 }
@@ -454,22 +454,20 @@ IPAddress AP_LOCAL_IP(192, 168, 1, 1);
 IPAddress AP_GATEWAY_IP(192, 168, 1, 254);
 IPAddress AP_NETWORK_MASK(255, 255, 255, 0);
 
-void setupAP(ManualControlCallback onManualControl, GamepadControlCallback onGamepadControl)
-{
+void setupAP(ManualControlCallback onManualControl, GamepadControlCallback onGamepadControl) {
 
   WiFi.mode(WIFI_AP);
-  //  WiFi.softAPConfig(AP_LOCAL_IP,
-  //      AP_GATEWAY_IP, AP_NETWORK_MASK);
+//  WiFi.softAPConfig(AP_LOCAL_IP,
+//      AP_GATEWAY_IP, AP_NETWORK_MASK);
   WiFi.softAP(ssid, password);
-  //  WiFi.softAP(ssid, password, /*channel*/1,
-  //      /*hidden*/false, /*maxConn*/4);
+//  WiFi.softAP(ssid, password, /*channel*/1,
+//      /*hidden*/false, /*maxConn*/4);
 
   Serial.println("Configuring access point");
-  for (int i = 0; WiFi.status() != WL_CONNECTED && i < 50; i++)
-  {
+  for(int i = 0; WiFi.status() != WL_CONNECTED
+        && i < 50; i++){
     Serial.print(".");
     delay(200);
-    //    return;
   }
 
   IPAddress IP = WiFi.softAPIP();
