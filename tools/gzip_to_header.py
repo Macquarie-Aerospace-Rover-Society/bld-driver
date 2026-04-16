@@ -62,15 +62,13 @@ def main() -> None:
 // On ESP32, PROGMEM has no effect on placement but keeps the intent explicit.
 #ifdef USE_PROGMEM
 #include <pgmspace.h>
-const uint8_t {array_name}[] PROGMEM = {{
-  {byte_lines}
-}};
+  const uint8_t {array_name}[] PROGMEM = 
 #else
-const uint8_t {array_name}[] = {{
+  const uint8_t {array_name}[]         = 
+#endif
+{{
   {byte_lines}
 }};
-#endif
-
 const size_t {len_name} = sizeof({array_name});
 """
 
