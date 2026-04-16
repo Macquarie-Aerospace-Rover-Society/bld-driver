@@ -36,4 +36,46 @@ Swap the polarity of all of the wires on either the left or the right such that 
 Change pin groups so it is clearer what connects to what.
 
 
+### Software architecture
 
+Multiple interfaces for underlying systems are presented, IControl and IMotorDriver. These interfaces are to present API's of the contained systems to improve readability and increase isolation of systems to improve their modularity in the hopes that they can be used with the mini-rover project.
+
+Ultimately this ESP32 system will appear as a peripheral to devices connected via USB, acting as the host for firmware to drive motors.
+
+
+```mermaid
+flowchart
+
+IMotorDriver
+
+
+subgraph IControl
+    heartBeat
+end
+
+subgraph Control
+    PathPlanning
+    RobotState
+    ESTOP
+end
+
+heartBeat --timeout trigger--> ESTOP
+
+subgraph USB
+    Serial
+end
+
+subgraph WiFi
+    WebpageBasic
+    WebpageGamepad
+end
+
+WiFi   --> IControl
+Serial --> IControl
+
+IControl --> Control
+
+
+Control --> IMotorDriver
+
+```
