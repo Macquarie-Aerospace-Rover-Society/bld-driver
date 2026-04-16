@@ -1,8 +1,8 @@
 #pragma once
 #include <WiFi.h>
 #include <WebServer.h>
-#include "manual_control.h"
-#include "gamepad_control.h"
+#include "html/manual_control.h"
+#include "html/gamepad_control.h"
 
 // Create a web server running on port 80
 WebServer serverBLD(80);

@@ -1,3 +1,2 @@
-# Generated HTML headers — regenerate with: bash tools/build_html.sh
-manual_control.h
-gamepad_control.h
+# Generated HTML headers — regenerate with: make
+html/*.h
