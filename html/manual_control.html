@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rover Manual Controller</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin-top: 20px;
+      background: #1a1a1a;
+      color: #fff;
+    }
+    button {
+      margin: 5px;
+      padding: 15px 30px;
+      font-size: 18px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      min-width: 120px;
+    }
+    button:hover { background: #0056b3; }
+    button:active { background: #004085; }
+    button.stop { background: #dc3545; }
+    button.stop:hover { background: #c82333; }
+    button.start { background: #28a745; }
+    button.start:hover { background: #218838; }
+    input[type=range] {
+      width: 80%;
+      max-width: 400px;
+      margin: 20px auto;
+      height: 40px;
+    }
+    .panel {
+      display: inline-block;
+      margin: 20px;
+      padding: 30px;
+      background: #2a2a2a;
+      border-radius: 10px;
+      min-width: 400px;
+    }
+    .turn-display {
+      font-size: 24px;
+      margin: 15px 0;
+      padding: 10px;
+      background: #333;
+      border-radius: 5px;
+      display: inline-block;
+      min-width: 150px;
+    }
+    .nav-link {
+      display: inline-block;
+      margin: 10px;
+      color: #007bff;
+      text-decoration: none;
+      font-size: 16px;
+    }
+    .nav-link:hover { text-decoration: underline; }
+    .instructions {
+      background: #333;
+      padding: 15px;
+      border-radius: 5px;
+      margin-top: 20px;
+      text-align: left;
+    }
+    .instructions h3 { margin-top: 0; }
+    .instructions ul { margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <h1>&#x1F697; Rover Manual Controller</h1>
+  <a href="/gamepad" class="nav-link">Switch to Gamepad Control &rarr;</a>
+
+  <div class="panel">
+    <h2>Movement Controls</h2>
+    <div style="margin: 20px 0;">
+      <button onclick="sendAction('forward')">&#9650; Forward</button>
+    </div>
+    <div style="margin: 20px 0;">
+      <button onclick="sendAction('backward')">&#9660; Backward</button>
+    </div>
+
+    <h3 style="margin-top: 40px;">Turn Direction</h3>
+    <input type="range" id="slider" min="-100" max="100" oninput="sendSlider(this.value)" value="0"/>
+    <div class="turn-display">
+      <span id="direction">&#9668; </span>
+      <span id="val">0</span>
+      <span id="direction-r"> &#9658;</span>
+    </div>
+
+    <div style="margin-top: 40px;">
+      <button class="start" onclick="sendAction('start')">&#9654; START / ENABLE</button>
+      <button class="stop" onclick="sendAction('stop')">&#9632; STOP / DISABLE</button>
+    </div>
+
+    <div class="instructions">
+      <h3>Instructions:</h3>
+      <ul>
+        <li><strong>START/ENABLE:</strong> Powers up motors (speed = 0)</li>
+        <li><strong>FORWARD/BACKWARD:</strong> Moves rover for 3 seconds</li>
+        <li><strong>Turn Slider:</strong> Adjusts turn direction (-100 = left, 0 = straight, +100 = right)</li>
+        <li><strong>STOP/DISABLE:</strong> Immediately stops and disables motors</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    const valDisplay = document.getElementById('val');
+    const dirLeft = document.getElementById('direction');
+    const dirRight = document.getElementById('direction-r');
+
+    function sendAction(act) {
+      const slider = document.getElementById('slider').value;
+      fetch(`/?action=${act}&slider=${slider}`)
+        .then(() => console.log('Action sent:', act))
+        .catch(e => console.error('Error:', e));
+    }
+
+    function sendSlider(val) {
+      valDisplay.textContent = val;
+
+      if (val < -10) {
+        dirLeft.textContent = '\u25C4\u25C4 ';
+        dirRight.textContent = '';
+      } else if (val > 10) {
+        dirLeft.textContent = '';
+        dirRight.textContent = ' \u25BA\u25BA';
+      } else {
+        dirLeft.textContent = '\u25C4 ';
+        dirRight.textContent = ' \u25BA';
+      }
+
+      fetch(`/?slider=${val}`)
+        .catch(e => console.error('Error:', e));
+    }
+
+    sendSlider(0);
+
+    setInterval(() => {
+      fetch('/keepalive').catch(() => console.error('Keepalive ping failed'));
+    }, 200);
+  </script>
+</body>
+</html>
