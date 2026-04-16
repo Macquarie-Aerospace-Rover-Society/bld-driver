@@ -1,11 +1,6 @@
+#pragma once
 #include <WiFi.h>
 #include <WebServer.h>
-
-// Start ESP as an access point
-const char* ssid     = "mars-Wally";
-// Need to have at least 8 characters
-//const char* password = "marsmarsmars";
-const char* password = ""; // Open network
 
 // Create a web server running on port 80
 WebServer serverBLD(80);
@@ -449,19 +444,15 @@ void setupWebServer(ManualControlCallback onControl, GamepadControlCallback onGa
   serverBLD.begin();
 }
 
-// Manual IP Configuration for Soft AP
-IPAddress AP_LOCAL_IP(192, 168, 1, 1);
-IPAddress AP_GATEWAY_IP(192, 168, 1, 254);
-IPAddress AP_NETWORK_MASK(255, 255, 255, 0);
-
-void setupAP(ManualControlCallback onManualControl, GamepadControlCallback onGamepadControl) {
+void setupAP(const char* ssid, const char* password,
+             ManualControlCallback onManualControl,
+             GamepadControlCallback onGamepadControl) {
 
   WiFi.mode(WIFI_AP);
-//  WiFi.softAPConfig(AP_LOCAL_IP,
-//      AP_GATEWAY_IP, AP_NETWORK_MASK);
   WiFi.softAP(ssid, password);
-//  WiFi.softAP(ssid, password, /*channel*/1,
-//      /*hidden*/false, /*maxConn*/4);
+  // Uncomment and configure to use a static IP:
+  // WiFi.softAPConfig(AP_LOCAL_IP, AP_GATEWAY_IP, AP_NETWORK_MASK);
+  // WiFi.softAP(ssid, password, /*channel*/1, /*hidden*/false, /*maxConn*/4);
 
   Serial.println("Configuring access point");
   for(int i = 0; WiFi.status() != WL_CONNECTED
@@ -486,11 +477,15 @@ void setupAP(ManualControlCallback onManualControl, GamepadControlCallback onGam
 inline void checkClientKeepalive(DisableMotors disableMotors) {
   if (clientConnected && (millis() - lastHeartbeat > KEEPALIVE_TIMEOUT_MS)) {
     Serial.println("Timeout! Stopping rover.");
-    
+
     // Stop the rover immediately
     disableMotors();
-    
+
     // Prevent spamming the stop command
-    clientConnected = false; 
+    clientConnected = false;
   }
+}
+
+inline void handleBLDClients() {
+  serverBLD.handleClient();
 }
